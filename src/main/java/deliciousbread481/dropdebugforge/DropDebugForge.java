@@ -40,6 +40,8 @@ public class DropDebugForge {
   
     // ===== ItemTossEvent 追踪 =====  
     private final Map<String, EventPriority> itemTossCancelledAt = new ConcurrentHashMap<>();  
+    // ===== EntityJoinLevelEvent 追踪 =====  
+    private final Map<String, EventPriority> entityJoinCancelledAt = new ConcurrentHashMap<>();
   
     public DropDebugForge() {  
         MinecraftForge.EVENT_BUS.register(this);  
@@ -189,33 +191,37 @@ public class DropDebugForge {
         }  
     }
     
-    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true) // LOWEST = 最后执行（相当于 Bukkit 的 MONITOR）  
-    public void onBlockBreakLowest(BlockEvent.BreakEvent event) {  
-        if (!debugEnabled) return;  
-        String key = blockKey(event);  
+    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true) // LOWEST = 最后执行（相当于 Bukkit 的 MONITOR）    
+    public void onBlockBreakLowest(BlockEvent.BreakEvent event) {    
+        if (!debugEnabled) return;    
+        String key = blockKey(event);    
   
-        if (event.isCanceled()) {  
-            if (!blockBreakCancelledAt.containsKey(key)) {  
-                blockBreakCancelledAt.put(key, EventPriority.LOWEST);  
-            }  
-            EventPriority cancelPriority = blockBreakCancelledAt.get(key);  
+        if (event.isCanceled()) {    
+            if (!blockBreakCancelledAt.containsKey(key)) {    
+                blockBreakCancelledAt.put(key, EventPriority.LOWEST);    
+            }    
+            EventPriority cancelPriority = blockBreakCancelledAt.get(key);    
   
-            LOG.warn("[DropDebugForge] [BlockBreakEvent] CANCELLED! Block: {} at {} by {}",  
-                    event.getState().getBlock().getName().getString(),  
-                    event.getPos(),  
-                    event.getPlayer().getName().getString());  
-            LOG.warn("[DropDebugForge] [BlockBreakEvent] >>> First cancelled at Forge priority: {}", cancelPriority);  
-            LOG.warn("[DropDebugForge] [BlockBreakEvent] >>> Registered Forge listeners:{}", getForgeListenersInfo(event));  
-        } else {  
-            LOG.info("[DropDebugForge] [BlockBreakEvent] OK. Block: {} at {} by {}",  
-                    event.getState().getBlock().getName().getString(),  
-                    event.getPos(),  
-                    event.getPlayer().getName().getString());  
-        }  
+            LOG.warn("[DropDebugForge] [BlockBreakEvent] CANCELLED! Block: {} at {} by {}",    
+                    event.getState().getBlock().getName().getString(),    
+                    event.getPos(),    
+                    event.getPlayer().getName().getString());    
+            LOG.warn("[DropDebugForge] [BlockBreakEvent] >>> First cancelled at Forge priority: {}", cancelPriority);    
+            LOG.warn("[DropDebugForge] [BlockBreakEvent] >>> Registered Forge listeners:{}", getForgeListenersInfo(event));    
+            LOG.warn("[DropDebugForge] [BlockBreakEvent] >>> Stack trace:");    
+            for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {    
+                LOG.warn("    at {}", ste);    
+            }    
+        } else {    
+            LOG.info("[DropDebugForge] [BlockBreakEvent] OK. Block: {} at {} by {}",    
+                    event.getState().getBlock().getName().getString(),    
+                    event.getPos(),    
+                    event.getPlayer().getName().getString());    
+        }    
   
-        blockBreakCancelledAt.remove(key);  
-        blockBreakWasCancelled.remove(key);  
-    }  
+        blockBreakCancelledAt.remove(key);    
+        blockBreakWasCancelled.remove(key);    
+    }
   
     // ==================== LivingDropsEvent 多优先级追踪 ====================  
   
@@ -266,67 +272,146 @@ public class DropDebugForge {
         }  
     }  
   
-    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)  
-    public void onLivingDropsLowest(LivingDropsEvent event) {  
-        if (!debugEnabled) return;  
-        UUID id = event.getEntity().getUUID();  
+    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)    
+    public void onLivingDropsLowest(LivingDropsEvent event) {    
+        if (!debugEnabled) return;    
+        UUID id = event.getEntity().getUUID();    
   
-        if (event.isCanceled()) {  
-            EventPriority cancelPriority = livingDropsClearedAt.getOrDefault(id, EventPriority.LOWEST);  
-            LOG.warn("[DropDebugForge] [LivingDropsEvent] CANCELLED! Entity: {} at {}",  
-                    event.getEntity().getType().toShortString(),  
-                    event.getEntity().position());  
-            LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Event cancelled at Forge priority: {}", cancelPriority);  
-            LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Registered Forge listeners:{}", getForgeListenersInfo(event));  
-        } else if (event.getDrops().isEmpty()) {  
-            EventPriority clearPriority = livingDropsClearedAt.get(id);  
-            LOG.warn("[DropDebugForge] [LivingDropsEvent] Drops EMPTY! Entity: {} at {}",  
-                    event.getEntity().getType().toShortString(),  
-                    event.getEntity().position());  
-            if (clearPriority != null) {  
-                LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Drops cleared at Forge priority: {}", clearPriority);  
-            } else {  
-                LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Drops were already empty at HIGHEST (no natural drops or cleared before listeners)");  
-            }  
-            LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Registered Forge listeners:{}", getForgeListenersInfo(event));  
-        } else {  
-            LOG.info("[DropDebugForge] [LivingDropsEvent] OK. Entity: {} Drops: {} Items: {}",  
-                    event.getEntity().getType().toShortString(),  
-                    event.getDrops().size(),  
-                    event.getDrops().stream()  
-                            .map(e -> e.getItem().getItem().toString())  
-                            .toList());  
-        }  
+        if (event.isCanceled()) {    
+            EventPriority cancelPriority = livingDropsClearedAt.getOrDefault(id, EventPriority.LOWEST);    
+            LOG.warn("[DropDebugForge] [LivingDropsEvent] CANCELLED! Entity: {} at {}",    
+                    event.getEntity().getType().toShortString(),    
+                    event.getEntity().position());    
+            LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Event cancelled at Forge priority: {}", cancelPriority);    
+            LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Registered Forge listeners:{}", getForgeListenersInfo(event));    
+            LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Stack trace:");    
+            for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {    
+                LOG.warn("    at {}", ste);    
+            }    
+        } else if (event.getDrops().isEmpty()) {    
+            EventPriority clearPriority = livingDropsClearedAt.get(id);    
+            LOG.warn("[DropDebugForge] [LivingDropsEvent] Drops EMPTY! Entity: {} at {}",    
+                    event.getEntity().getType().toShortString(),    
+                    event.getEntity().position());    
+            if (clearPriority != null) {    
+                LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Drops cleared at Forge priority: {}", clearPriority);    
+            } else {    
+                LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Drops were already empty at HIGHEST (no natural drops or cleared before listeners)");    
+            }    
+            LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Registered Forge listeners:{}", getForgeListenersInfo(event));    
+            LOG.warn("[DropDebugForge] [LivingDropsEvent] >>> Stack trace:");    
+            for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {    
+                LOG.warn("    at {}", ste);    
+            }    
+        } else {    
+            LOG.info("[DropDebugForge] [LivingDropsEvent] OK. Entity: {} Drops: {} Items: {}",    
+                    event.getEntity().getType().toShortString(),    
+                    event.getDrops().size(),    
+                    event.getDrops().stream()    
+                            .map(e -> e.getItem().getItem().toString())    
+                            .toList());    
+        }    
   
-        livingDropsCount.remove(id);  
-        livingDropsClearedAt.remove(id);  
+        livingDropsCount.remove(id);    
+        livingDropsClearedAt.remove(id);    
     }
     
     // ==================== ItemTossEvent（玩家丢弃物品） ====================  
   
-    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)  
-    public void onItemToss(ItemTossEvent event) {  
-        if (!debugEnabled) return;  
-        if (event.isCanceled()) {  
-            LOG.warn("[DropDebugForge] [ItemTossEvent] CANCELLED! Player: {} Item: {}",  
-                    event.getPlayer().getName().getString(),  
-                    event.getEntity().getItem().getItem());  
-            LOG.warn("[DropDebugForge] [ItemTossEvent] >>> Registered Forge listeners:{}", getForgeListenersInfo(event));  
-        }  
-    }  
+    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)    
+    public void onItemToss(ItemTossEvent event) {    
+        if (!debugEnabled) return;    
+        if (event.isCanceled()) {    
+            LOG.warn("[DropDebugForge] [ItemTossEvent] CANCELLED! Player: {} Item: {}",    
+                    event.getPlayer().getName().getString(),    
+                    event.getEntity().getItem().getItem());    
+            LOG.warn("[DropDebugForge] [ItemTossEvent] >>> Registered Forge listeners:{}", getForgeListenersInfo(event));    
+            LOG.warn("[DropDebugForge] [ItemTossEvent] >>> Stack trace:");    
+            for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {    
+                LOG.warn("    at {}", ste);    
+            }    
+        }    
+    }
   
     // ==================== EntityJoinLevelEvent（物品实体生成） ====================  
   
-    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)  
-    public void onEntityJoinLevel(EntityJoinLevelEvent event) {  
-        if (!debugEnabled) return;  
-        if (!(event.getEntity() instanceof ItemEntity itemEntity)) return;  
+    // ==================== EntityJoinLevelEvent 多优先级追踪 ====================  
   
-        if (event.isCanceled()) {  
-            LOG.warn("[DropDebugForge] [EntityJoinLevelEvent] CANCELLED for ItemEntity! Item: {} at {}",  
-                    itemEntity.getItem().getItem(),  
-                    itemEntity.position());  
-            LOG.warn("[DropDebugForge] [EntityJoinLevelEvent] >>> Registered Forge listeners:{}", getForgeListenersInfo(event));  
-        }  
-    }  
+    private String entityJoinKey(ItemEntity itemEntity) {    
+        return itemEntity.getItem().getItem().toString() + ":"    
+                + (int) itemEntity.getX() + ":"    
+                + (int) itemEntity.getY() + ":"    
+                + (int) itemEntity.getZ();    
+    }    
+  
+    @SubscribeEvent(priority = EventPriority.HIGHEST)    
+    public void onEntityJoinLevelHighest(EntityJoinLevelEvent event) {    
+        if (!debugEnabled) return;    
+        if (!(event.getEntity() instanceof ItemEntity itemEntity)) return;    
+        String key = entityJoinKey(itemEntity);    
+        entityJoinCancelledAt.remove(key);    
+        if (event.isCanceled()) {    
+            entityJoinCancelledAt.put(key, EventPriority.HIGHEST);    
+        }    
+    }    
+  
+    @SubscribeEvent(priority = EventPriority.HIGH)    
+    public void onEntityJoinLevelHigh(EntityJoinLevelEvent event) {    
+        if (!debugEnabled) return;    
+        if (!(event.getEntity() instanceof ItemEntity itemEntity)) return;    
+        String key = entityJoinKey(itemEntity);    
+        if (event.isCanceled() && !entityJoinCancelledAt.containsKey(key)) {    
+            entityJoinCancelledAt.put(key, EventPriority.HIGH);    
+        }    
+    }    
+  
+    @SubscribeEvent(priority = EventPriority.NORMAL)    
+    public void onEntityJoinLevelNormal(EntityJoinLevelEvent event) {    
+        if (!debugEnabled) return;    
+        if (!(event.getEntity() instanceof ItemEntity itemEntity)) return;    
+        String key = entityJoinKey(itemEntity);    
+        if (event.isCanceled() && !entityJoinCancelledAt.containsKey(key)) {    
+            entityJoinCancelledAt.put(key, EventPriority.NORMAL);    
+        }    
+    }    
+  
+    @SubscribeEvent(priority = EventPriority.LOW)    
+    public void onEntityJoinLevelLow(EntityJoinLevelEvent event) {    
+        if (!debugEnabled) return;    
+        if (!(event.getEntity() instanceof ItemEntity itemEntity)) return;    
+        String key = entityJoinKey(itemEntity);    
+        if (event.isCanceled() && !entityJoinCancelledAt.containsKey(key)) {    
+            entityJoinCancelledAt.put(key, EventPriority.LOW);    
+        }    
+    }    
+  
+    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)    
+    public void onEntityJoinLevel(EntityJoinLevelEvent event) {    
+        if (!debugEnabled) return;    
+        if (!(event.getEntity() instanceof ItemEntity itemEntity)) return;    
+  
+        if (event.isCanceled()) {    
+            String key = entityJoinKey(itemEntity);    
+            if (!entityJoinCancelledAt.containsKey(key)) {    
+                entityJoinCancelledAt.put(key, EventPriority.LOWEST);    
+            }    
+            EventPriority cancelPriority = entityJoinCancelledAt.get(key);    
+  
+            LOG.warn("[DropDebugForge] [EntityJoinLevelEvent] CANCELLED for ItemEntity! Item: {} at {}",    
+                    itemEntity.getItem().getItem(),    
+                    itemEntity.position());    
+            LOG.warn("[DropDebugForge] [EntityJoinLevelEvent] >>> ItemStack details: item={}, count={}, isEmpty={}",    
+                    itemEntity.getItem().getItem(),    
+                    itemEntity.getItem().getCount(),    
+                    itemEntity.getItem().isEmpty());    
+            LOG.warn("[DropDebugForge] [EntityJoinLevelEvent] >>> First cancelled at Forge priority: {}", cancelPriority);    
+            LOG.warn("[DropDebugForge] [EntityJoinLevelEvent] >>> Registered Forge listeners:{}", getForgeListenersInfo(event));    
+            LOG.warn("[DropDebugForge] [EntityJoinLevelEvent] >>> Stack trace:");    
+            for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {    
+                LOG.warn("    at {}", ste);    
+            }    
+  
+            entityJoinCancelledAt.remove(key);    
+        }    
+    }    
 }
