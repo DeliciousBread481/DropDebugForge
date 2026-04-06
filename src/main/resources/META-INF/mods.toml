@@ -1,0 +1,23 @@
+modLoader="javafml"  
+loaderVersion="[47,)"  
+license="MIT"  
+  
+[[mods]]  
+modId="dropdebugforge"  
+version="1.0.0"  
+displayName="DropDebugForge"  
+description="Forge-side drop debug mod - identifies which mod cancels events or clears drops."  
+  
+[[dependencies.dropdebugforge]]  
+modId="forge"  
+mandatory=true  
+versionRange="[47,)"  
+ordering="NONE"  
+side="BOTH"  
+  
+[[dependencies.dropdebugforge]]  
+modId="minecraft"  
+mandatory=true  
+versionRange="[1.20.1,1.21)"  
+ordering="NONE"  
+side="BOTH"
