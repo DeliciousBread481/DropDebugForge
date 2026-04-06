@@ -85,16 +85,7 @@ public class DropDebugForge {
             // event.getListenerList() 返回 ListenerList  
             var listenerList = event.getListenerList();  
             
-            private int getBusID() {  
-                try {  
-                    Field busIDField = MinecraftForge.EVENT_BUS.getClass().getDeclaredField("busID");  
-                    busIDField.setAccessible(true);  
-                    return (int) busIDField.get(MinecraftForge.EVENT_BUS);  
-                } catch (Exception e) {  
-                    return 0; // fallback to default  
-                }  
-            }
-            IEventListener[] listeners = listenerList.getListeners(getBusID());
+            IEventListener[] listeners = listenerList.getListeners(0);
             Set<String> seen = new LinkedHashSet<>();  
             for (IEventListener listener : listeners) {  
                 String listenerStr = listener.toString();  
