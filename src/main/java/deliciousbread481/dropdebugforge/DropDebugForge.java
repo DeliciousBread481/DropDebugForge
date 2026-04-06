@@ -84,10 +84,17 @@ public class DropDebugForge {
             // Forge EventBus 内部使用 ListenerList  
             // event.getListenerList() 返回 ListenerList  
             var listenerList = event.getListenerList();  
-  
-            // 通过反射获取所有 listeners  
-            // ListenerList.getListeners() 返回 IEventListener[]  
-            IEventListener[] listeners = listenerList.getListeners();  
+            
+            private int getBusID() {  
+                try {  
+                    Field busIDField = MinecraftForge.EVENT_BUS.getClass().getDeclaredField("busID");  
+                    busIDField.setAccessible(true);  
+                    return (int) busIDField.get(MinecraftForge.EVENT_BUS);  
+                } catch (Exception e) {  
+                    return 0; // fallback to default  
+                }  
+            }
+            IEventListener[] listeners = listenerList.getListeners(getBusID());
             Set<String> seen = new LinkedHashSet<>();  
             for (IEventListener listener : listeners) {  
                 String listenerStr = listener.toString();  
